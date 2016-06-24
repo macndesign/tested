@@ -3,8 +3,9 @@ from django.http import Http404
 from mixer.backend.django import mixer
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
+from django.core import mail
 from .. import views
-
+from mock import patch
 pytestmark = pytest.mark.django_db
 
 
@@ -55,3 +56,13 @@ class TestPostUpdateView:
         req.user = user
         with pytest.raises(Http404):
             views.PostUpdateView.as_view()(req, pk=post.pk)
+
+
+class TestPaymentView:
+    @patch('birdie.views.stripe')
+    def test_payment(self, mock_stripe):
+        mock_stripe.Charge.return_value = {'id': '234'}
+        req = RequestFactory().post('/', data={'token': '123'})
+        resp = views.PaymentView.as_view()(req)
+        assert resp.status_code == 302, 'Should redirect to success_url'
+        assert len(mail.outbox) == 1, 'Should send an email'
